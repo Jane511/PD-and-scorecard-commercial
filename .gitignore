@@ -1,0 +1,42 @@
+# Python cache and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pytest-cache-files-*/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments and local Python tooling
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Generated portfolio outputs
+output/
+
+# Generated synthetic and benchmark datasets
+data/raw/
+data/processed/
+
+# Local fallback public-input drops
+data/public_inputs/kaggle_transactions/*.csv
+data/public_inputs/kaggle_invoices/*.csv
+data/public_inputs/listed_company_reports/*.csv
+
+# Keep lightweight test fixtures under version control
+!tests/fixtures/
+!tests/fixtures/**/*

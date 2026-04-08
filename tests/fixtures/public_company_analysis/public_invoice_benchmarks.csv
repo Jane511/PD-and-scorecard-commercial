@@ -1,0 +1,2 @@
+industry,invoice_record_count,invoice_customer_count,invoice_amount_median,invoice_payment_delay_median_days,invoice_late_payment_rate,invoice_severe_late_rate_90dpd,invoice_top_customer_concentration_pct,invoice_dilution_proxy_rate,invoice_benchmark_source
+Wholesale Trade,288,24,315000,12,0.16,0.03,0.25,0.04,Financial Statement Analysis public company proxy receivables benchmarks

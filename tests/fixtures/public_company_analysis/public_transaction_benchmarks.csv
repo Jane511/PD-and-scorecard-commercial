@@ -1,0 +1,2 @@
+industry,transaction_account_count,transaction_record_count,tx_avg_monthly_credits_median,tx_avg_monthly_debits_median,tx_credit_turnover_cv_median,tx_months_negative_net_cash_median,tx_failed_event_rate_median,tx_cash_advance_rate_median,transaction_benchmark_source
+Wholesale Trade,1,12,8750000,8300000,0.115,2,0.018,0.024,Financial Statement Analysis public company proxy conduct benchmarks
