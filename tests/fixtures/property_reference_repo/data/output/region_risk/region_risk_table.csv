@@ -1,0 +1,3 @@
+region,state,region_group,property_segment,building_approvals_trend,building_activity_trend,housing_finance_trend,region_risk_score,region_risk_band,as_of_date,source_note
+Australia,Australia,Commercial,Offices,Sharp contraction,Proxy from approvals trend,Proxy from cash-rate backdrop (mixed),4.03,High,2026-03-16,Fixture region risk reference
+Australia,Australia,Industrial,Warehouses,Improving,Proxy from approvals trend,Proxy from cash-rate backdrop (mixed),2.35,Medium,2026-03-16,Fixture region risk reference

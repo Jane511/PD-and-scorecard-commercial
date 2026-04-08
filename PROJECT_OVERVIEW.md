@@ -1,22 +1,28 @@
-# Cash Flow Lending Project Overview
+# Commercial Lending PD Project Overview
 
-This project is an end-to-end demonstration of how a bank-style PD and scorecard framework can be built for Australian business cash flow lending.
+This project is an end-to-end demonstration of how a bank-style PD framework can be built for two separate commercial-lending streams:
+
+- SME cash-flow lending
+- property-backed / development lending
 
 It covers:
 
-- revolving working-capital facilities
-- unsecured term cash-flow loans
-- receivables finance
-- trade finance
-- business cards
-- contingent facilities such as bank guarantees
+- cash-flow lending:
+  - revolving working-capital facilities
+  - unsecured term cash-flow loans
+  - receivables finance
+  - trade finance
+  - business cards
+  - contingent facilities such as bank guarantees
+- property-backed lending:
+  - property investment loans
+  - bridging loans
+  - development facilities
 
 It does not cover:
 
 - home lending
-- property-backed commercial lending
 - land subdivision
-- development finance
 
 ## The simple idea
 
@@ -25,14 +31,32 @@ This repo does not pretend public data is enough to build a real bank model on i
 Instead, it uses public benchmark layers from sibling repos to make the synthetic SME portfolio more realistic:
 
 - repo `9` supplies industry and macro risk overlays
+- repo `9` also supplies property-reference tables for region risk bands, property-cycle softness bands, arrears environment, and downturn overlays
 - repo `8` supplies public-company financial, conduct, and receivables proxy benchmarks
-- repo `1.2` generates the missing borrower-level bank data and builds the PD scorecard
+- repo `1.2` generates the missing borrower-level bank data for cash-flow lending and synthetic facility-level loans for property-backed lending
 
 So the design is:
 
 1. Use public external information wherever it is reasonable.
 2. Use synthetic data for the bank-only fields that are not public.
-3. Join both together into one explainable PD workflow.
+3. Keep cash-flow and property-backed risk in separate modelling streams.
+4. Join both streams back together into one explainable EL-facing PD workflow.
+
+## Property-backed reference layer from repo 9
+
+The property-backed stream reads these public reference outputs from repo `9`:
+
+- `data/output/region_risk/region_risk_table.csv`
+- `data/output/property_cycle/property_cycle_table.csv`
+- `data/output/arrears_environment/base_arrears_environment.csv`
+- `data/output/downturn_overlays/property_downturn_overlays.csv`
+
+Those tables define:
+
+- property-segment region risk bands
+- market-softness / construction-cycle bands
+- the base arrears environment
+- simple scenario downturn overlays for stressed PD views
 
 ## What comes from repo 9
 
@@ -66,6 +90,20 @@ How those values matter:
 - they control the sector risk overlay attached to each borrower
 - they influence the realism of synthetic margin, liquidity, and working-capital assumptions
 - they provide the base industry environment before any borrower-specific modelling starts
+
+Additional repo `9` property-reference outputs now used in repo `1.2`:
+
+- `data/output/region_risk/region_risk_table.csv`
+- `data/output/property_cycle/property_cycle_table.csv`
+- `data/output/arrears_environment/base_arrears_environment.csv`
+- `data/output/downturn_overlays/property_downturn_overlays.csv`
+
+How those property-reference tables matter:
+
+- they set `region_risk_score` and `region_risk_band` for each synthetic property facility
+- they set `cycle_stage`, `market_softness_score`, and `market_softness_band`
+- they provide the base arrears backdrop used in synthetic property watchlist and arrears generation
+- they provide scenario multipliers used in `output/pd_final/property_pd_downturn_scenarios.csv`
 
 ## What comes from repo 8
 
@@ -257,6 +295,42 @@ Outputs:
 - `output/scorecard_outputs/11_test_deciles.csv`
 - `output/scorecard_outputs/12_test_ks.csv`
 
+### 7. PD final layer
+
+The repo now converts the scored facility dataset into one EL-ready final PD layer:
+
+- starts from `predicted_pd` as `pd_12m_raw`
+- applies simple watchlist, arrears, and policy overlays
+- applies a calibration scalar
+- exports one clean `pd_final` field per facility
+
+Outputs:
+
+- `output/pd_final/facility_pd_final.csv`
+- `output/pd_final/pd_final_summary_by_product.csv`
+- `output/pd_final/pd_final_validation_checks.csv`
+
+### 8. Property-backed PD stream
+
+The repo also builds a separate facility-level property-backed scorecard:
+
+- synthetic property facilities are generated directly at facility level
+- repo `9` region risk, property-cycle, arrears, and downturn tables are joined into each facility
+- a separate logistic scorecard produces raw property PD
+- a property final layer applies LVR, completion-stage, exit-risk, and watchlist overlays
+
+Outputs:
+
+- `data/processed/property_backed_facility_dataset.csv`
+- `data/processed/property_reference_segments.csv`
+- `data/processed/property_reference_provenance.csv`
+- `output/property_pd/07_scorecard_metadata.csv`
+- `output/pd_final/property_pd_final.csv`
+- `output/pd_final/property_pd_final_summary_by_product.csv`
+- `output/pd_final/property_pd_final_validation_checks.csv`
+- `output/pd_final/property_pd_downturn_scenarios.csv`
+- `output/pd_final/facility_pd_final_combined.csv`
+
 ## Best files to open
 
 If you want to understand the project quickly, open these in order:
@@ -267,17 +341,28 @@ If you want to understand the project quickly, open these in order:
 4. `data/processed/public_listed_company_benchmarks.csv`
 5. `data/processed/public_transaction_benchmarks.csv`
 6. `data/processed/public_invoice_benchmarks.csv`
-7. `output/scorecard_outputs/07_scorecard_metadata.csv`
-8. `output/policy_overlay.csv`
-9. `output/portfolio_summary.md`
+7. `data/processed/property_reference_provenance.csv`
+8. `output/scorecard_outputs/07_scorecard_metadata.csv`
+9. `output/policy_overlay.csv`
+10. `output/property_pd/07_scorecard_metadata.csv`
+11. `output/pd_final/facility_pd_final.csv`
+12. `output/pd_final/property_pd_final.csv`
+13. `output/pd_final/facility_pd_final_combined.csv`
+14. `output/portfolio_summary.md`
+
+## Repo hygiene
+
+The maintained source tree is the Python pipeline, tests, and these two Markdown files. Local notebooks, rendered PDFs, and Jupyter runtime folders are treated as disposable scratch artifacts rather than long-lived project source.
 
 ## What to say in an interview
 
 The strongest summary is:
 
 - repo `9` gives the sector risk environment
+- repo `9` also gives the property-reference layer used by the property-backed model
 - repo `8` gives public-company benchmark anchors
-- repo `1.2` uses those public anchors to calibrate a synthetic SME cash-flow lending portfolio
-- the PD model itself is built here with WOE, IV, logistic regression, policy overlays, and monitoring outputs
+- repo `1.2` uses those public anchors to calibrate both a synthetic SME cash-flow portfolio and a synthetic property-backed facility portfolio
+- each PD stream is built separately with WOE, IV, logistic regression, and its own PD Final Layer
+- the repo then combines both streams into one clean facility-level PD handoff for EL
 
 That is the correct description of what is public, what is synthetic, and where each part of the workflow lives.

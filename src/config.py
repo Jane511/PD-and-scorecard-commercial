@@ -7,20 +7,36 @@ DATA_PROCESSED_DIR = ROOT / "data" / "processed"
 PUBLIC_INPUT_DIR = ROOT / "data" / "public_inputs"
 OUTPUT_DIR = ROOT / "output"
 SCORECARD_OUTPUT_DIR = OUTPUT_DIR / "scorecard_outputs"
+PD_FINAL_OUTPUT_DIR = OUTPUT_DIR / "pd_final"
+PROPERTY_OUTPUT_DIR = OUTPUT_DIR / "property_pd"
 
 INDUSTRY_RISK_SOURCE_DIRS = (
     ROOT.parent / "9.Industry Risk Analysis_Australia",
     ROOT.parent / "industry_analysis",
 )
+PROPERTY_REFERENCE_SOURCE_DIRS = (
+    ROOT.parent / "9.Industry Risk Analysis_Australia",
+    ROOT.parent / "industry-risk-reference-layer",
+)
 
 RANDOM_SEED = 42
 N_BORROWERS = 720
+N_PROPERTY_FACILITIES = 360
 TEST_SIZE = 0.30
 TARGET_DEFAULT_RATE = 0.11
+PROPERTY_TARGET_DEFAULT_RATE = 0.075
 
 BASE_SCORE = 600.0
 BASE_GOOD_BAD_ODDS = 20.0
 PDO = 20.0
+PD_FINAL_CALIBRATION_SCALAR = 1.10
+PD_FINAL_DEFAULT_HORIZON_MONTHS = 12
+PD_FINAL_MODEL_NAME = "cashflow_logistic_scorecard"
+PD_FINAL_MODEL_VERSION = "v1.0"
+PROPERTY_PD_FINAL_CALIBRATION_SCALAR = 1.05
+PROPERTY_PD_FINAL_DEFAULT_HORIZON_MONTHS = 12
+PROPERTY_PD_FINAL_MODEL_NAME = "property_logistic_scorecard"
+PROPERTY_PD_FINAL_MODEL_VERSION = "v1.0"
 
 FORBIDDEN_KEYWORDS = ("property", "development", "subdivision", "land banking")
 
@@ -361,6 +377,29 @@ CANDIDATE_FEATURES = [
     "eligibility_status",
     "tax_arrears_flag",
     "wc_flag",
+]
+
+PROPERTY_CANDIDATE_FEATURES = [
+    "product_type",
+    "loan_purpose",
+    "security_type",
+    "property_segment",
+    "region_group",
+    "region_risk_score",
+    "market_softness_score",
+    "macro_housing_risk_score",
+    "current_lvr",
+    "ltc",
+    "dscr",
+    "interest_cover",
+    "presales_ratio",
+    "completion_stage",
+    "fund_to_complete_flag",
+    "exit_risk_band",
+    "guarantor_support_flag",
+    "arrears_days",
+    "watchlist_flag",
+    "policy_override_flag",
 ]
 
 SCORE_BAND_RULES = (

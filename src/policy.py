@@ -85,6 +85,7 @@ def build_policy_overlay(scored_df: pd.DataFrame, cash_rate_pct: float = 3.85) -
 
         rows.append(
             {
+                "facility_id": getattr(row, "facility_id", f"CFL-{int(row.borrower_id):05d}"),
                 "borrower_id": row.borrower_id,
                 "borrower_name": row.borrower_name,
                 "industry": row.industry,

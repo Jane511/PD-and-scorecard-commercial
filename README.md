@@ -1,39 +1,126 @@
-# Cash Flow Lending PD and Scorecard
+# Commercial Lending PD - Cash Flow and Property-Backed
 
-This repo builds a bank-style Probability of Default scorecard for Australian business cash flow lending.
+## Business Problem
 
-It is not a mortgage model and it is not a property-development model. The product scope is:
+This repository now demonstrates two separate commercial-lending PD streams:
 
-- business overdrafts
-- working capital revolvers
-- unsecured term loans
-- invoice finance
-- trade receivables finance
-- trade finance lines
-- business credit cards
-- bank guarantees
+- an SME cash-flow lending scorecard for unsecured and working-capital products
+- a property-backed / development lending scorecard built on synthetic facility-level loans
 
-If you want the plain-English walkthrough first, open:
+Both streams finish with facility-level PD Final Layers and one combined EL-facing PD export.
 
-- `PROJECT_OVERVIEW.md`
+## Product Scope
+
+- cash-flow stream:
+  - business overdrafts
+  - working capital revolvers
+  - unsecured term loans
+  - invoice finance
+  - trade receivables finance
+  - trade finance lines
+  - business credit cards
+  - bank guarantees
+- property-backed stream:
+  - property investment loans
+  - bridging loans
+  - development facilities
+- out of scope:
+  - home lending
+  - land subdivision
+
+## Data Used
+
+- public industry, macro, and property-reference overlays from sibling repo `../9.Industry Risk Analysis_Australia/`
+- public listed-company, transaction, and invoice benchmarks from sibling repo `../8. Financial Statement Analysis — Commercial Cash Flow Lending/`
+- synthetic borrower financials, bureau fields, bank-statement conduct, and product-underwriting inputs for the cash-flow stream in `data/raw/`
+- synthetic facility-level property-backed loans and public property reference joins in `data/processed/`
+- merged processed datasets in `data/processed/`, including `cashflow_lending_feature_dataset.csv`, `property_backed_facility_dataset.csv`, and `property_reference_segments.csv`
+
+## Model Logic
+
+1. Load public benchmark layers from repos `8` and `9`.
+2. Build the SME cash-flow stream with synthetic borrower financials, conduct, underwriting, and policy overlays.
+3. Build the property-backed stream with synthetic facility-level loans.
+4. Use repo `9` property-reference outputs to define region risk bands, market-softness / construction-cycle bands, macro arrears environment, and simple downturn overlays.
+5. Build WOE and IV transformations for each stream separately.
+6. Fit separate logistic-regression PD scorecards for cash-flow and property-backed lending.
+7. Build a cash-flow PD Final Layer.
+8. Build a property PD Final Layer plus scenario-ready downturn overlays.
+9. Combine both streams into one EL-facing `facility_pd_final_combined.csv`.
+
+## Outputs
+
+- narrative overview in `PROJECT_OVERVIEW.md`
+- combined portfolio summary in `output/portfolio_summary.md`
+- cash-flow policy and scorecard outputs in `output/policy_overlay.csv` and `output/scorecard_outputs/`
+- property-backed scorecard outputs in `output/property_pd/`
+- property reference snapshots and provenance in `data/processed/property_reference_*.csv` plus `data/processed/property_*_reference.csv`
+- PD final-layer exports in `output/pd_final/facility_pd_final.csv`, `output/pd_final/pd_final_summary_by_product.csv`, `output/pd_final/pd_final_validation_checks.csv`, `output/pd_final/property_pd_final.csv`, `output/pd_final/property_pd_final_summary_by_product.csv`, `output/pd_final/property_pd_final_validation_checks.csv`, `output/pd_final/property_pd_downturn_scenarios.csv`, and `output/pd_final/facility_pd_final_combined.csv`
+
+## Limitations
+
+- public data is used as a calibration layer, not as a substitute for unavailable bank-internal borrower history
+- cash-flow borrower data and property facility-level loan data remain synthetic
+- listed-company, transaction, and invoice benchmarks are proxies rather than raw bank ledgers
+- the property reference layer currently uses national segment-level public joins rather than state-level loan-by-loan geography
+
+## Sample Outputs
+
+| Metric | Value |
+| --- | --- |
+| Cash-flow borrowers scored | 720 |
+| Property facilities scored | 360 |
+| Combined EL-facing facilities | 1,080 |
+| Cash-flow product families covered | 6 |
+| Property product types covered | 3 |
+
+- Quick-review files: `output/portfolio_summary.md`, `output/property_pd/property_portfolio_summary.md`, `output/pd_final/pd_final_summary_by_product.csv`, `output/pd_final/property_pd_final_summary_by_product.csv`, and `output/pd_final/facility_pd_final_combined.csv`
+- Local notebooks, rendered PDFs, and Jupyter runtime folders are treated as disposable scratch artifacts rather than maintained source files.
 
 ## What this repo does
 
-The pipeline creates a full cash-flow lending portfolio and then scores it:
+The pipeline now runs two separate commercial-lending PD streams and then combines them:
 
-1. Load public benchmark layers from sibling repos.
-2. Generate synthetic SME borrower financials for the missing bank-internal data.
-3. Generate synthetic bureau, statement-conduct, and product-underwriting fields.
-4. Apply product eligibility rules.
-5. Build WOE and IV features.
-6. Fit a logistic-regression PD scorecard.
-7. Convert PD into score bands, policy outcomes, pricing overlays, and monitoring outputs.
+1. Load public benchmark and property-reference layers from sibling repos.
+2. Generate the synthetic SME borrower portfolio for cash-flow lending.
+3. Generate the synthetic facility-level property-backed portfolio.
+4. Fit separate PD scorecards for each stream.
+5. Build a final facility-level PD for each stream.
+6. Export one combined PD file for downstream Expected Loss use.
 
 Main run command:
 
 ```bash
 python scripts/run_pipeline.py
 ```
+
+Standalone cash-flow final-layer rebuild:
+
+```bash
+python -m src.pd_final
+```
+
+The detailed sections below still describe the original cash-flow benchmark plumbing first, then the new property-backed additions.
+
+## Property reference outputs consumed from repo 9
+
+Sibling repo:
+
+- `../9.Industry Risk Analysis_Australia/`
+
+Files used by the property-backed stream:
+
+- `data/output/region_risk/region_risk_table.csv`
+- `data/output/property_cycle/property_cycle_table.csv`
+- `data/output/arrears_environment/base_arrears_environment.csv`
+- `data/output/downturn_overlays/property_downturn_overlays.csv`
+
+How they are used here:
+
+- `region_risk_table.csv` anchors `region_risk_score` and `region_risk_band`
+- `property_cycle_table.csv` anchors `cycle_stage`, `market_softness_score`, and `market_softness_band`
+- `base_arrears_environment.csv` anchors the macro arrears backdrop used in synthetic arrears and watchlist generation
+- `property_downturn_overlays.csv` feeds the simple scenario multipliers exported to `output/pd_final/property_pd_downturn_scenarios.csv`
 
 ## What data this repo uses from repo 9
 
@@ -225,7 +312,54 @@ Scorecard and policy outputs:
 - `output/scorecard_outputs/07_scorecard_metadata.csv`
 - `output/scorecard_outputs/13_product_family_summary.csv`
 - `output/policy_overlay.csv`
+- `output/pd_final/facility_pd_final.csv`
+- `output/pd_final/pd_final_summary_by_product.csv`
+- `output/pd_final/pd_final_validation_checks.csv`
+- `output/property_pd/07_scorecard_metadata.csv`
+- `output/pd_final/property_pd_final.csv`
+- `output/pd_final/property_pd_final_summary_by_product.csv`
+- `output/pd_final/property_pd_final_validation_checks.csv`
+- `output/pd_final/property_pd_downturn_scenarios.csv`
+- `output/pd_final/facility_pd_final_combined.csv`
 - `output/portfolio_summary.md`
+
+## PD Final Layer
+
+The repository now includes two simplified PD final layers for downstream Expected Loss usage.
+
+Cash-flow final layer:
+
+- raw `pd_12m_raw` from the logistic scorecard
+- watchlist uplift based on adverse bureau, conduct, and policy signals
+- arrears uplift based on the strongest available delinquency proxy in the synthetic conduct layer
+- policy override uplift for conditional or outside-criteria cases
+- a calibration scalar to create the business-ready `pd_final`
+
+Property-backed final layer:
+
+- raw `pd_12m_raw` from the property logistic scorecard
+- LVR overlay
+- completion-stage overlay
+- exit-risk overlay
+- watchlist overlay
+- scenario-ready downturn multipliers sourced from repo `9`
+
+The main EL-facing outputs are:
+
+- `output/pd_final/facility_pd_final.csv`
+- `output/pd_final/pd_final_summary_by_product.csv`
+- `output/pd_final/pd_final_validation_checks.csv`
+- `output/pd_final/property_pd_final.csv`
+- `output/pd_final/property_pd_final_summary_by_product.csv`
+- `output/pd_final/property_pd_final_validation_checks.csv`
+- `output/pd_final/property_pd_downturn_scenarios.csv`
+- `output/pd_final/facility_pd_final_combined.csv`
+
+The combined file is ready for use in an EL engine:
+
+```python
+expected_loss = pd_final * lgd_final * ead
+```
 
 ## How to refresh everything
 
@@ -252,9 +386,19 @@ python scripts/run_pipeline.py
 │   ├── raw/
 │   └── processed/
 ├── output/
+│   ├── property_pd/
+│   ├── pd_final/
 │   └── scorecard_outputs/
 ├── scripts/
 │   └── run_pipeline.py
 ├── src/
+│   ├── pd_final.py
+│   ├── pd_final_property.py
+│   ├── pd_output_merge.py
+│   ├── property_data.py
+│   ├── property_model.py
+│   └── property_reference.py
 └── tests/
 ```
+
+The maintained source tree is `scripts/`, `src/`, `tests/`, `README.md`, and `PROJECT_OVERVIEW.md`. Local notebook scratch work and rendered PDF drafts are intentionally kept out of the tracked repo.

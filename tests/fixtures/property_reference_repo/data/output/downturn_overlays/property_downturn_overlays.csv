@@ -1,0 +1,5 @@
+scenario,pd_multiplier,lgd_multiplier,ccf_multiplier,property_value_haircut,notes,as_of_date
+base,1.0,1.0,1.0,0.0,Fixture base scenario,2026-03-16
+mild,1.2,1.1,1.05,0.05,Fixture mild scenario,2026-03-16
+moderate,1.5,1.2,1.1,0.1,Fixture moderate scenario,2026-03-16
+severe,2.0,1.3,1.2,0.2,Fixture severe scenario,2026-03-16

@@ -73,6 +73,7 @@ def build_borrower_snapshot(
 ) -> pd.DataFrame:
     fy0 = financials_with_ratios[financials_with_ratios["period"] == "FY0"].copy()
     df = fy0.merge(trend_df, on="borrower_id", how="left")
+    df["facility_id"] = df["borrower_id"].map(lambda borrower_id: f"CFL-{int(borrower_id):05d}")
 
     df["wc_flag"] = np.where(
         (df["working_capital"] > 0) & (df["current_ratio"] >= 1.20),
@@ -94,6 +95,7 @@ def build_borrower_snapshot(
         df["financial_benchmark_source"] = df["financial_benchmark_source"].fillna("Synthetic SME fallback")
 
     keep_columns = [
+        "facility_id",
         "borrower_id",
         "borrower_name",
         "industry",

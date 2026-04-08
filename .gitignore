@@ -24,6 +24,12 @@ Thumbs.db
 *.log
 *.tmp
 *.temp
+/*.pdf
+.ipython/
+.jupyter_config/
+.jupyter_data/
+.jupyter_runtime/
+**/.ipynb_checkpoints/
 
 # Generated portfolio outputs
 output/
