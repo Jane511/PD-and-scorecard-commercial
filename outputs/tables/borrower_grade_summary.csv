@@ -1,0 +1,4 @@
+risk_grade,borrowers,facilities,exposure,avg_pd
+RG2,2,2,1325000,0.0157
+RG3,3,3,3740000,0.0356
+RG4,1,1,742000,0.0586

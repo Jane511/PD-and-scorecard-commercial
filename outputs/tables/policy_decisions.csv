@@ -1,0 +1,7 @@
+borrower_id,facility_id,segment,industry,product_type,score,risk_grade,pd_estimate,dscr,utilisation,policy_decision
+B001,F001,SME Cash Flow,Wholesale Trade,term_loan,693.0,RG2,0.0195,1.7222,0.8167,Approve
+B002,F002,SME Cash Flow,Construction,overdraft,571.0,RG4,0.0586,1.0508,0.8625,Refer
+B003,F003,Property Backed,Accommodation and Food Services,commercial_mortgage,635.0,RG3,0.037,1.4074,0.875,Approve
+B004,F004,Working Capital,Manufacturing,revolving_working_capital,679.0,RG3,0.0274,1.8723,0.5533,Approve
+B005,F005,Trade Finance,Retail Trade,trade_finance,636.0,RG3,0.0424,1.6957,0.35,Refer
+B006,F006,Contingent,Professional Services,guarantee,756.0,RG2,0.012,4.9524,0.0,Approve

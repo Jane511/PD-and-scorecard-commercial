@@ -1,0 +1,4 @@
+risk_grade,min_score,max_score,min_pd,max_pd,facilities
+RG2,693.0,756.0,0.012,0.0195,2
+RG3,635.0,679.0,0.0274,0.0424,3
+RG4,571.0,571.0,0.0586,0.0586,1

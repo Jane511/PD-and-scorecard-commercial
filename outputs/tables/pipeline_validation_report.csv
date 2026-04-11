@@ -1,0 +1,13 @@
+check_name,status,detail
+required_output::pd_model_output.csv,True,present and non-empty
+required_output::borrower_grade_summary.csv,True,present and non-empty
+required_output::policy_decisions.csv,True,present and non-empty
+required_output::score_band_output.csv,True,present and non-empty
+non_negative::pd_model_output.csv::pd_estimate,True,all values non-negative
+non_negative::pd_model_output.csv::utilisation,True,all values non-negative
+non_negative::borrower_grade_summary.csv::exposure,True,all values non-negative
+non_negative::borrower_grade_summary.csv::avg_pd,True,all values non-negative
+non_negative::policy_decisions.csv::pd_estimate,True,all values non-negative
+non_negative::policy_decisions.csv::utilisation,True,all values non-negative
+non_negative::score_band_output.csv::min_pd,True,all values non-negative
+non_negative::score_band_output.csv::max_pd,True,all values non-negative
