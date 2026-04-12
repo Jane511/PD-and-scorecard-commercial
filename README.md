@@ -8,7 +8,16 @@ This project shows how a bank-style commercial borrower-rating engine can be str
 
 ## Where it sits in the stack
 
-This repo sits after financial statement analysis and industry overlay work, and before expected loss, monitoring, and pricing in the public commercial stack.
+Upstream inputs:
+- `financial-statement-analysis`
+- `industry-analysis`
+
+Downstream consumers:
+- `LGD-commercial`
+- `expected-loss-engine-commercial`
+- `stress-testing-commercial`
+- `RAROC-pricing-and-return-hurdle`
+- `RWA-capital-commercial`
 
 ## Key inputs
 

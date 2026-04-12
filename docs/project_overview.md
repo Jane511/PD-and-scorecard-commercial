@@ -1,4 +1,4 @@
-# Project Overview - PD-and-scorecard-commercial
+# Project Overview
 
 `PD-and-scorecard-commercial` is the main commercial borrower-rating and scorecard engine in the public credit-risk stack.
 
