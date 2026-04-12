@@ -240,10 +240,10 @@ def write_combined_portfolio_summary(
         "",
         "## Key Files",
         "",
-        "- `output/pd_final/facility_pd_final.csv`",
-        "- `output/pd_final/property_pd_final.csv`",
-        "- `output/pd_final/property_pd_downturn_scenarios.csv`",
-        "- `output/pd_final/facility_pd_final_combined.csv`",
+        "- `outputs/tables/pd_model_output.csv`",
+        "- `outputs/tables/score_band_output.csv`",
+        "- `outputs/tables/policy_decisions.csv`",
+        "- `outputs/tables/pipeline_validation_report.csv`",
     ]
 
     path.parent.mkdir(parents=True, exist_ok=True)

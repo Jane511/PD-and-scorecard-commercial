@@ -4,7 +4,7 @@ This folder has been rebuilt around a clean README, docs, notebooks, modular Pyt
 
 ## Portfolio role
 
-`PD-and-scorecard-commercial` is the main SME cash-flow borrower-rating engine.
+`PD-and-scorecard-commercial` is the main commercial borrower-rating and scorecard engine.
 
 ## Rebuilt deliverables
 
