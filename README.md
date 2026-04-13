@@ -1,10 +1,10 @@
-# Commercial Probability of Default & Scorecard Project
+# Commercial Credit Scorecard (PD Model) Project
 
-This repository is the borrower PD and scorecard layer in the public commercial credit-risk stack. It uses borrower financial analysis outputs, industry context, and synthetic lending data to produce facility-level PDs, score bands, and policy-style decision tables for downstream loss, monitoring, and pricing workflows.
+This repository is the borrower PD and scorecard layer in the public commercial credit-risk stack. It uses borrower financial analysis outputs, industry context, and synthetic lending data to produce facility-level PDs, score bands, and policy-style decision tables for both bank-aligned risk assessment and practical origination decisioning workflows.
 
 ## What this repo is
 
-This project shows how a bank-style commercial borrower-rating engine can be structured for portfolio review and underwriting discussion. It is designed as a public portfolio project, so the logic is explainable, the workflows are modular, and the data is synthetic rather than confidential bank data.
+This project shows how a commercial credit scorecard can be structured for both portfolio risk review and real-world underwriting discussion. It is designed as a public portfolio project, so the logic is explainable, the workflows are modular, and the data is synthetic rather than confidential lender data.
 
 ## Where it sits in the stack
 
@@ -18,6 +18,22 @@ Downstream consumers:
 - `stress-testing-commercial`
 - `RAROC-pricing-and-return-hurdle`
 - `RWA-capital-commercial`
+
+## How this is used in practice
+
+This project can be applied in:
+
+### Bank / Institutional context
+
+- PD estimation for internal risk grading, capital-style frameworks, and stress testing
+- Portfolio risk assessment and borrower segmentation
+- Credit risk monitoring and structured risk review using score bands and policy outputs
+
+### Non-bank / Fintech context
+
+- Credit scorecards for originations decisioning and approval strategy
+- Approve / decline / refer decision support using score bands and policy thresholds
+- Ongoing performance monitoring and re-segmentation of booked customers
 
 ## Key inputs
 
@@ -40,6 +56,7 @@ Downstream consumers:
 - `scripts/`: wrapper scripts for pipeline execution
 - `docs/`: methodology, assumptions, data dictionary, and validation notes
 - `notebooks/`: walkthrough notebooks for reviewer context
+- `output/`: legacy scorecard and PD-final export paths retained for compatibility with existing modules
 - `outputs/`: exported tables, reports, and sample artifacts
 - `tests/`: validation and regression checks
 
