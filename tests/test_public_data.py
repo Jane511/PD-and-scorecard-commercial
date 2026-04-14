@@ -83,3 +83,90 @@ def test_load_listed_company_financials_accepts_financial_statement_analysis_sch
         provenance_df["source_path"].astype(str).str.contains("metcash_limited_financial_statement_analysis_extract.csv", regex=False)
     ].iloc[0]
     assert metcash_provenance["status"] == "loaded"
+
+
+def test_load_public_industry_overlays_prefers_canonical_parquet(monkeypatch, tmp_path):
+    upstream_repo = tmp_path / "industry-analysis"
+    scores_path = upstream_repo / "data" / "exports" / "industry_risk_scores.parquet"
+    macro_path = upstream_repo / "data" / "exports" / "macro_regime_flags.parquet"
+    downturn_path = upstream_repo / "data" / "exports" / "downturn_overlay_table.parquet"
+    scores_path.parent.mkdir(parents=True, exist_ok=True)
+    scores_path.touch()
+    macro_path.touch()
+    downturn_path.touch()
+
+    monkeypatch.setattr(public_data, "_discover_industry_analysis_source_dirs", lambda: [upstream_repo])
+
+    def fake_read_parquet(path):
+        if Path(path) == scores_path:
+            return pd.DataFrame(
+                [
+                    {
+                        "industry_name": "Wholesale Trade",
+                        "classification_score": 3.10,
+                        "macro_score": 2.80,
+                        "industry_risk_score": 2.95,
+                        "ebitda_margin_pct_latest": 11.2,
+                    }
+                ]
+            )
+        if Path(path) == macro_path:
+            return pd.DataFrame(
+                [
+                    {
+                        "cash_rate_pct": 4.10,
+                        "employment_yoy_growth_pct": 1.3,
+                        "demand_yoy_growth_pct": 0.8,
+                    }
+                ]
+            )
+        raise AssertionError(f"Unexpected parquet path requested: {path}")
+
+    monkeypatch.setattr(public_data.pd, "read_parquet", fake_read_parquet)
+
+    overlay_df, provenance_df = public_data.load_public_industry_overlays()
+    wholesale_row = overlay_df.loc[overlay_df["industry"] == "Wholesale Trade"].iloc[0]
+
+    assert wholesale_row["final_industry_risk_score"] == pytest.approx(2.95)
+    assert wholesale_row["risk_level"] == "Elevated"
+    assert wholesale_row["public_cash_rate_latest_pct"] == pytest.approx(4.10)
+    assert wholesale_row["industry_overlay_source"] == "industry-analysis canonical exports"
+    assert provenance_df.iloc[0]["dataset_group"] == "industry_analysis_canonical"
+    assert provenance_df.iloc[0]["status"] == "loaded"
+
+
+def test_load_public_industry_overlays_fails_when_required_file_missing(monkeypatch, tmp_path):
+    upstream_repo = tmp_path / "industry-analysis"
+    scores_path = upstream_repo / "data" / "exports" / "industry_risk_scores.parquet"
+    scores_path.parent.mkdir(parents=True, exist_ok=True)
+    scores_path.touch()
+
+    monkeypatch.setattr(public_data, "_discover_industry_analysis_source_dirs", lambda: [upstream_repo])
+
+    with pytest.raises(FileNotFoundError):
+        public_data.load_public_industry_overlays()
+
+
+def test_load_public_industry_overlays_fails_when_required_columns_missing(monkeypatch, tmp_path):
+    upstream_repo = tmp_path / "industry-analysis"
+    scores_path = upstream_repo / "data" / "exports" / "industry_risk_scores.parquet"
+    macro_path = upstream_repo / "data" / "exports" / "macro_regime_flags.parquet"
+    downturn_path = upstream_repo / "data" / "exports" / "downturn_overlay_table.parquet"
+    scores_path.parent.mkdir(parents=True, exist_ok=True)
+    scores_path.touch()
+    macro_path.touch()
+    downturn_path.touch()
+
+    monkeypatch.setattr(public_data, "_discover_industry_analysis_source_dirs", lambda: [upstream_repo])
+
+    def fake_read_parquet(path):
+        if Path(path) == scores_path:
+            return pd.DataFrame([{"industry_name": "Wholesale Trade"}])
+        if Path(path) == macro_path:
+            return pd.DataFrame([{"cash_rate_pct": 4.00}])
+        raise AssertionError(f"Unexpected parquet path requested: {path}")
+
+    monkeypatch.setattr(public_data.pd, "read_parquet", fake_read_parquet)
+
+    with pytest.raises(ValueError):
+        public_data.load_public_industry_overlays()

@@ -11,10 +11,13 @@ PD_FINAL_OUTPUT_DIR = OUTPUT_DIR / "pd_final"
 PROPERTY_OUTPUT_DIR = OUTPUT_DIR / "property_pd"
 
 INDUSTRY_RISK_SOURCE_DIRS = (
-    ROOT.parent / "9.Industry Risk Analysis_Australia",
+    ROOT.parent / "industry-analysis",
     ROOT.parent / "industry_analysis",
+    ROOT.parent / "9.Industry Risk Analysis_Australia",
 )
 PROPERTY_REFERENCE_SOURCE_DIRS = (
+    ROOT.parent / "industry-analysis",
+    ROOT.parent / "industry_analysis",
     ROOT.parent / "9.Industry Risk Analysis_Australia",
     ROOT.parent / "industry-risk-reference-layer",
 )

@@ -11,6 +11,10 @@ This project shows how a commercial credit scorecard can be structured for both 
 Upstream inputs:
 - `financial-statement-analysis`
 - `industry-analysis`
+  - required canonical exports:
+    - `data/exports/industry_risk_scores.parquet`
+    - `data/exports/macro_regime_flags.parquet`
+    - `data/exports/downturn_overlay_table.parquet`
 
 Downstream consumers:
 - `LGD-commercial`
@@ -38,7 +42,10 @@ This project can be applied in:
 ## Key inputs
 
 - borrower financial outputs from `financial-statement-analysis`
-- industry and macro overlay context from `industry-analysis`
+- industry and macro overlay context from `industry-analysis` canonical parquet exports:
+  - `data/exports/industry_risk_scores.parquet`
+  - `data/exports/macro_regime_flags.parquet`
+  - `data/exports/downturn_overlay_table.parquet`
 - synthetic borrower, facility, and policy-threshold inputs staged under `data/`
 
 ## Key outputs

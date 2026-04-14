@@ -67,6 +67,8 @@ def _discover_property_reference_source_dirs() -> list[Path]:
         if path not in candidates:
             candidates.append(path)
     for pattern in (
+        "industry-analysis*",
+        "industry_analysis*",
         "9.Industry Risk Analysis*",
         "industry-risk-reference-layer*",
     ):
@@ -312,24 +314,64 @@ def load_arrears_environment_reference() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def load_property_downturn_overlays() -> tuple[pd.DataFrame, pd.DataFrame]:
-    loaded = _load_reference_table(
-        "data/output/downturn_overlays/property_downturn_overlays.csv",
-        DOWNTURN_OVERLAY_COLUMNS,
-    )
-    if loaded is not None:
-        df, source_path = loaded
+    for repo_dir in _discover_property_reference_source_dirs():
+        source_path = repo_dir / "data/exports/downturn_overlay_table.parquet"
+        if not source_path.exists():
+            continue
+
+        df = pd.read_parquet(source_path)
+        if df.empty:
+            raise ValueError(f"Upstream dataset '{source_path}' is empty.")
+
+        normalised_columns = {str(column).strip().lower(): column for column in df.columns}
+        if "scenario" not in normalised_columns or "pd_multiplier" not in normalised_columns:
+            raise ValueError(
+                f"Upstream dataset '{source_path}' must include at least 'scenario' and 'pd_multiplier' columns."
+            )
+
+        scenario_col = normalised_columns["scenario"]
+        pd_multiplier_col = normalised_columns["pd_multiplier"]
+        lgd_multiplier_col = normalised_columns.get("lgd_multiplier")
+        ccf_multiplier_col = normalised_columns.get("ccf_multiplier")
+        haircut_col = (
+            normalised_columns.get("property_value_haircut")
+            or normalised_columns.get("value_haircut")
+            or normalised_columns.get("collateral_haircut")
+        )
+        as_of_col = normalised_columns.get("as_of_date")
+        notes_col = normalised_columns.get("notes")
+
+        mapped = pd.DataFrame(
+            {
+                "scenario": df[scenario_col].astype(str).str.strip().str.lower(),
+                "pd_multiplier": pd.to_numeric(df[pd_multiplier_col], errors="coerce"),
+                "lgd_multiplier": pd.to_numeric(df[lgd_multiplier_col], errors="coerce") if lgd_multiplier_col else 1.0,
+                "ccf_multiplier": pd.to_numeric(df[ccf_multiplier_col], errors="coerce") if ccf_multiplier_col else 1.0,
+                "property_value_haircut": pd.to_numeric(df[haircut_col], errors="coerce") if haircut_col else 0.0,
+                "notes": df[notes_col].astype(str) if notes_col else "Loaded from industry-analysis canonical downturn overlays.",
+                "as_of_date": df[as_of_col].astype(str) if as_of_col else FALLBACK_AS_OF_DATE,
+            }
+        )
+        mapped = mapped.dropna(subset=["scenario", "pd_multiplier"]).drop_duplicates(subset=["scenario"], keep="last")
+        if mapped.empty:
+            raise ValueError(f"Upstream dataset '{source_path}' did not contain usable downturn overlay rows.")
+
+        for column in DOWNTURN_OVERLAY_COLUMNS:
+            if column not in mapped.columns:
+                mapped[column] = pd.NA
+
         provenance = pd.DataFrame(
             [
                 {
                     "dataset_name": "property_downturn_overlays",
                     "status": "loaded",
-                    "records_loaded": int(len(df)),
-                    "source_path": source_path,
-                    "notes": "Loaded simple property downturn overlays from the sibling industry-risk repository.",
+                    "records_loaded": int(len(mapped)),
+                    "source_path": str(source_path),
+                    "notes": "Loaded property downturn overlays from industry-analysis canonical parquet exports.",
                 }
             ]
         )
-        return df, provenance
+        return mapped[DOWNTURN_OVERLAY_COLUMNS], provenance
 
     df = _fallback_downturn_overlays()
     provenance = pd.DataFrame(
@@ -339,7 +381,7 @@ def load_property_downturn_overlays() -> tuple[pd.DataFrame, pd.DataFrame]:
                 "status": "fallback",
                 "records_loaded": int(len(df)),
                 "source_path": "",
-                "notes": "Sibling industry-risk downturn overlays not found. Using in-repo fallback scenario multipliers.",
+                "notes": "Canonical industry-analysis downturn overlays not found. Using in-repo fallback scenario multipliers.",
             }
         ]
     )

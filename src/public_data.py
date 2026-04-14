@@ -10,6 +10,12 @@ LISTED_COMPANY_DIR = PUBLIC_INPUT_DIR / "listed_company_reports"
 KAGGLE_TRANSACTIONS_DIR = PUBLIC_INPUT_DIR / "kaggle_transactions"
 KAGGLE_INVOICES_DIR = PUBLIC_INPUT_DIR / "kaggle_invoices"
 
+INDUSTRY_EXPORTS_RELATIVE_PATHS = {
+    "industry_risk_scores": Path("data/exports/industry_risk_scores.parquet"),
+    "macro_regime_flags": Path("data/exports/macro_regime_flags.parquet"),
+    "downturn_overlay_table": Path("data/exports/downturn_overlay_table.parquet"),
+}
+
 _LISTED_STANDARD_COLUMNS = [
     "source_file",
     "company_name",
@@ -187,6 +193,22 @@ def _discover_precomputed_invoice_output_dirs() -> list[Path]:
     return _discover_precomputed_public_company_output_dirs()
 
 
+def _discover_industry_analysis_source_dirs() -> list[Path]:
+    candidates: list[Path] = []
+    for path in INDUSTRY_RISK_SOURCE_DIRS:
+        if path not in candidates:
+            candidates.append(path)
+    for pattern in (
+        "industry-analysis*",
+        "industry_analysis*",
+        "9.Industry Risk Analysis*",
+    ):
+        for repo_dir in sorted(ROOT.parent.glob(pattern)):
+            if repo_dir not in candidates:
+                candidates.append(repo_dir)
+    return candidates
+
+
 def _format_listed_standard_df(df: pd.DataFrame) -> pd.DataFrame:
     formatted = df.copy()
     for column in _LISTED_STANDARD_COLUMNS:
@@ -235,6 +257,44 @@ def _format_benchmark_df(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     formatted["industry"] = formatted["industry"].map(normalise_industry_name)
     formatted = formatted.dropna(subset=["industry"])
     return formatted[columns].reset_index(drop=True)
+
+
+def _column_or_none(df: pd.DataFrame, candidates: list[str]) -> str | None:
+    return _coalesce_column(df, candidates)
+
+
+def _normalise_industry_series(series: pd.Series) -> pd.Series:
+    return series.map(normalise_industry_name)
+
+
+def _derive_risk_level(score_series: pd.Series) -> pd.Series:
+    bins = [-np.inf, 2.0, 2.75, 3.5, np.inf]
+    labels = ["Low", "Medium", "Elevated", "High"]
+    return pd.cut(pd.to_numeric(score_series, errors="coerce"), bins=bins, labels=labels, include_lowest=True).astype(object)
+
+
+def _first_non_null(series: pd.Series) -> float | str | None:
+    non_null = series.dropna()
+    if non_null.empty:
+        return None
+    return non_null.iloc[0]
+
+
+def _coalesce_numeric(df: pd.DataFrame, candidates: list[str]) -> pd.Series:
+    for column in candidates:
+        resolved = _column_or_none(df, [column])
+        if resolved:
+            return pd.to_numeric(df[resolved], errors="coerce")
+    return pd.Series(np.nan, index=df.index, dtype="float64")
+
+
+def _validate_required_columns(df: pd.DataFrame, required_aliases: dict[str, list[str]], dataset_name: str) -> None:
+    missing = [target for target, aliases in required_aliases.items() if _column_or_none(df, aliases) is None]
+    if missing:
+        raise ValueError(
+            f"Upstream dataset '{dataset_name}' is missing required columns mapped to: {missing}. "
+            "Check the industry-analysis export schema."
+        )
 
 
 def _load_precomputed_listed_company_outputs() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame] | None:
@@ -367,81 +427,106 @@ def load_public_industry_overlays() -> tuple[pd.DataFrame, pd.DataFrame]:
     overlay = _default_industry_overlay()
     provenance_rows = []
 
-    for repo_dir in INDUSTRY_RISK_SOURCE_DIRS:
-        base_path = repo_dir / "output" / "tables" / "industry_base_risk_scorecard.csv"
-        benchmark_path = repo_dir / "output" / "tables" / "industry_public_benchmarks.csv"
-        if not base_path.exists():
+    for repo_dir in _discover_industry_analysis_source_dirs():
+        scores_path = repo_dir / INDUSTRY_EXPORTS_RELATIVE_PATHS["industry_risk_scores"]
+        macro_path = repo_dir / INDUSTRY_EXPORTS_RELATIVE_PATHS["macro_regime_flags"]
+        downturn_path = repo_dir / INDUSTRY_EXPORTS_RELATIVE_PATHS["downturn_overlay_table"]
+
+        existing_paths = [path for path in (scores_path, macro_path, downturn_path) if path.exists()]
+        if not existing_paths:
             continue
 
-        base_df = pd.read_csv(base_path)
-        base_df["industry"] = base_df["industry"].map(normalise_industry_name)
-        base_df = base_df.dropna(subset=["industry"])
+        missing_paths = [path for path in (scores_path, macro_path, downturn_path) if not path.exists()]
+        if missing_paths:
+            missing_text = ", ".join(str(path) for path in missing_paths)
+            raise FileNotFoundError(
+                "Detected industry-analysis repository but missing required canonical exports: "
+                f"{missing_text}"
+            )
 
-        merge_df = base_df[[
-            "industry",
-            "classification_risk_score",
-            "macro_risk_score",
-            "industry_base_risk_score",
-            "industry_base_risk_level",
-            "employment_yoy_growth_pct",
-            "ebitda_margin_pct_latest",
-            "inventory_days_est",
-            "demand_yoy_growth_pct",
-            "cash_rate_latest_pct",
-        ]].rename(
-            columns={
-                "industry_base_risk_score": "final_industry_risk_score",
-                "industry_base_risk_level": "risk_level",
-                "employment_yoy_growth_pct": "public_employment_yoy_growth_pct",
-                "ebitda_margin_pct_latest": "public_ebitda_margin_pct_latest",
-                "inventory_days_est": "public_inventory_days_est",
-                "demand_yoy_growth_pct": "public_demand_yoy_growth_pct",
-                "cash_rate_latest_pct": "public_cash_rate_latest_pct",
-            }
+        scores_df = pd.read_parquet(scores_path)
+        _validate_required_columns(
+            scores_df,
+            {
+                "industry": ["industry", "industry_name", "sector", "segment"],
+                "final_industry_risk_score": ["final_industry_risk_score", "industry_risk_score", "industry_base_risk_score"],
+            },
+            dataset_name=str(scores_path),
         )
 
-        if benchmark_path.exists():
-            benchmark_df = pd.read_csv(benchmark_path)
-            benchmark_df["industry"] = benchmark_df["industry"].map(normalise_industry_name)
-            benchmark_df = benchmark_df.dropna(subset=["industry"])
-            benchmark_df = benchmark_df[[
-                "industry",
-                "ebitda_margin_pct_latest",
-                "inventory_days_est",
-                "employment_yoy_growth_pct",
-                "demand_yoy_growth_pct",
-            ]].rename(
-                columns={
-                    "ebitda_margin_pct_latest": "benchmark_ebitda_margin_pct_latest",
-                    "inventory_days_est": "benchmark_inventory_days_est",
-                    "employment_yoy_growth_pct": "benchmark_employment_yoy_growth_pct",
-                    "demand_yoy_growth_pct": "benchmark_demand_yoy_growth_pct",
-                }
-            )
-            merge_df = merge_df.merge(benchmark_df, on="industry", how="left")
-            merge_df["public_ebitda_margin_pct_latest"] = merge_df["public_ebitda_margin_pct_latest"].fillna(
-                merge_df["benchmark_ebitda_margin_pct_latest"]
-            )
-            merge_df["public_inventory_days_est"] = merge_df["public_inventory_days_est"].fillna(
-                merge_df["benchmark_inventory_days_est"]
-            )
-            merge_df["public_employment_yoy_growth_pct"] = merge_df["public_employment_yoy_growth_pct"].fillna(
-                merge_df["benchmark_employment_yoy_growth_pct"]
-            )
-            merge_df["public_demand_yoy_growth_pct"] = merge_df["public_demand_yoy_growth_pct"].fillna(
-                merge_df["benchmark_demand_yoy_growth_pct"]
-            )
-            merge_df = merge_df.drop(
-                columns=[
-                    "benchmark_ebitda_margin_pct_latest",
-                    "benchmark_inventory_days_est",
-                    "benchmark_employment_yoy_growth_pct",
-                    "benchmark_demand_yoy_growth_pct",
-                ]
-            )
+        industry_col = _column_or_none(scores_df, ["industry", "industry_name", "sector", "segment"])
+        merge_df = pd.DataFrame(
+            {
+                "industry": _normalise_industry_series(scores_df[industry_col]),
+                "classification_risk_score": _coalesce_numeric(
+                    scores_df,
+                    ["classification_risk_score", "classification_score"],
+                ),
+                "macro_risk_score": _coalesce_numeric(scores_df, ["macro_risk_score", "macro_score"]),
+                "final_industry_risk_score": _coalesce_numeric(
+                    scores_df,
+                    ["final_industry_risk_score", "industry_risk_score", "industry_base_risk_score"],
+                ),
+                "risk_level": scores_df[_column_or_none(scores_df, ["risk_level", "industry_risk_level", "industry_base_risk_level"])]
+                if _column_or_none(scores_df, ["risk_level", "industry_risk_level", "industry_base_risk_level"])
+                else pd.Series(pd.NA, index=scores_df.index, dtype="object"),
+                "public_ebitda_margin_pct_latest": _coalesce_numeric(
+                    scores_df,
+                    ["public_ebitda_margin_pct_latest", "ebitda_margin_pct_latest"],
+                ),
+                "public_inventory_days_est": _coalesce_numeric(
+                    scores_df,
+                    ["public_inventory_days_est", "inventory_days_est"],
+                ),
+                "public_employment_yoy_growth_pct": _coalesce_numeric(
+                    scores_df,
+                    ["public_employment_yoy_growth_pct", "employment_yoy_growth_pct"],
+                ),
+                "public_demand_yoy_growth_pct": _coalesce_numeric(
+                    scores_df,
+                    ["public_demand_yoy_growth_pct", "demand_yoy_growth_pct"],
+                ),
+                "public_cash_rate_latest_pct": _coalesce_numeric(
+                    scores_df,
+                    ["public_cash_rate_latest_pct", "cash_rate_latest_pct"],
+                ),
+            }
+        )
+        merge_df = merge_df.dropna(subset=["industry"]).drop_duplicates(subset=["industry"], keep="last")
 
-        merge_df["industry_overlay_source"] = "Public industry risk repo"
-        merge_df["industry_overlay_path"] = str(base_path)
+        macro_df = pd.read_parquet(macro_path)
+        if macro_df.empty:
+            raise ValueError(f"Upstream dataset '{macro_path}' is empty.")
+
+        macro_industry_col = _column_or_none(macro_df, ["industry", "industry_name", "sector", "segment"])
+        macro_field_aliases = {
+            "macro_risk_score": ["macro_risk_score", "macro_score"],
+            "public_employment_yoy_growth_pct": ["public_employment_yoy_growth_pct", "employment_yoy_growth_pct"],
+            "public_demand_yoy_growth_pct": ["public_demand_yoy_growth_pct", "demand_yoy_growth_pct"],
+            "public_cash_rate_latest_pct": ["public_cash_rate_latest_pct", "cash_rate_latest_pct", "cash_rate_pct"],
+        }
+        if macro_industry_col:
+            macro_merge = pd.DataFrame({"industry": _normalise_industry_series(macro_df[macro_industry_col])})
+            for target, aliases in macro_field_aliases.items():
+                macro_merge[target] = _coalesce_numeric(macro_df, aliases)
+            macro_merge = macro_merge.dropna(subset=["industry"]).drop_duplicates(subset=["industry"], keep="last")
+            merge_df = merge_df.merge(macro_merge, on="industry", how="left", suffixes=("", "_macro"))
+            for target in macro_field_aliases:
+                macro_column = f"{target}_macro"
+                if macro_column in merge_df.columns:
+                    merge_df[target] = merge_df[target].fillna(merge_df[macro_column])
+                    merge_df = merge_df.drop(columns=[macro_column])
+        else:
+            for target, aliases in macro_field_aliases.items():
+                macro_series = _coalesce_numeric(macro_df, aliases)
+                macro_value = _first_non_null(macro_series)
+                if macro_value is not None:
+                    merge_df[target] = merge_df[target].fillna(float(macro_value))
+
+        merge_df["risk_level"] = merge_df["risk_level"].fillna(_derive_risk_level(merge_df["final_industry_risk_score"]))
+
+        merge_df["industry_overlay_source"] = "industry-analysis canonical exports"
+        merge_df["industry_overlay_path"] = str(scores_path)
 
         overlay = overlay.drop(columns=["industry_overlay_source", "industry_overlay_path"]).merge(
             merge_df,
@@ -471,24 +556,25 @@ def load_public_industry_overlays() -> tuple[pd.DataFrame, pd.DataFrame]:
         provenance_rows.append(
             {
                 "dataset_name": "industry_overlays",
-                "dataset_group": "public_official",
+                "dataset_group": "industry_analysis_canonical",
                 "status": "loaded",
                 "records_loaded": int(len(merge_df)),
-                "source_path": str(base_path),
-                "notes": "Loaded public industry and macro overlays from the external industry-risk repository.",
+                "source_path": str(scores_path),
+                "notes": "Loaded industry and macro overlays from industry-analysis canonical parquet exports.",
             }
         )
+
         break
 
     if not provenance_rows:
         provenance_rows.append(
             {
                 "dataset_name": "industry_overlays",
-                "dataset_group": "public_official",
+                "dataset_group": "industry_analysis_canonical",
                 "status": "fallback",
                 "records_loaded": int(len(overlay)),
                 "source_path": "",
-                "notes": "External industry-risk repository not found. Using in-repo fallback settings.",
+                "notes": "Canonical industry-analysis exports were not found. Using in-repo fallback settings.",
             }
         )
 
